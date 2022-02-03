@@ -1,0 +1,17 @@
+QC:
+    fastp: /home/smalltools/fastp
+
+align:
+    software: hisat2/STAR
+    bin: /path/to/hisat2_directory OR STAR_bin
+    threads: 8
+
+quantify:
+    software: featureCounts/RSEM
+    bin: /path/to/rsem_directory OR featureCounts_bin
+    index: /path/to/index
+
+resources:
+    reference:
+    gff:
+    temporary:
