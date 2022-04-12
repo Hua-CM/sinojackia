@@ -91,6 +91,7 @@ class GenConfig:
         pp_out_dir(self.logdir, '03_expression')
         ainone.setdefault('logdir', os.path.join(self.logdir, '03_expression'))
         ainone.setdefault('config', self.config)
+        return ainone
 
     def pp_call(self):
         ainone = dict()
@@ -168,8 +169,8 @@ class GenMeta:
             in_dir = os.path.join(self.outdir, '01_cleandata')
             _samplelst = self.pp_qc()
             for _sample in _samplelst:
-                _sample['fq1'] = f"{in_dir}/{_sample['sample']}_1_clean.fq"
-                _sample['fq2'] = f"{in_dir}/{_sample['sample']}_2_clean.fq"
+                _sample['fq1'] = f"{in_dir}/{_sample['sample']}_1_clean.fq.gz"
+                _sample['fq2'] = f"{in_dir}/{_sample['sample']}_2_clean.fq.gz"
         return _samplelst
 
     def pp_quan_var(self):
@@ -199,7 +200,7 @@ class GenMeta:
             for _sample in _samplelst_tmp:
                 _tmp = dict()
                 _tmp.setdefault('sample', _sample['sample'])
-                _tmp.setdefault('gvcf', f"{in_dir}/{_sample['sample']}.g.vcf")
+                _tmp.setdefault('gvcf', f"{in_dir}/{_sample['sample']}.g.vcf.gz")
                 _samplelst.append(_tmp)
         return _samplelst
 

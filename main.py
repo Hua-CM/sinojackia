@@ -9,7 +9,7 @@
 import sys
 import argparse
 import os
-from WGS import wgs, rna
+from interface import interface
 
 
 def getArgs():
@@ -57,17 +57,15 @@ def getArgs():
 
 def main():
     kwargs = getArgs()
-    kwargs.units = kwargs.units.split(',')
     # change to absolute path
-    kwargs.logdir = os.path.abspath(kwargs.logdir)
-    kwargs.outdir = os.path.abspath(kwargs.outdir)
-    if kwargs.command == 'WGS':
-        wgs(kwargs)
-    elif kwargs.command == 'RNA':
-        rna(kwargs)
-    elif kwargs.command is None:
+    if kwargs.command is None:
         print("Please type: sinojackia -h or sinojackia --help to show the help message.")
         sys.exit(1)
+    else:
+        kwargs.logdir = os.path.abspath(kwargs.logdir)
+        kwargs.outdir = os.path.abspath(kwargs.outdir)
+        kwargs.units = kwargs.units.split(',')
+        interface(kwargs)
 
 
 if __name__ == '__main__':

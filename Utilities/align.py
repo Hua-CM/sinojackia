@@ -10,7 +10,7 @@ import os
 from Utilities.utilities import PP
 
 
-class PPAlgin(PP):
+class PPAlign(PP):
     def _get_hisat2_cmd(self, _sample):
         """
         :param _sample: {sample:str, RG:str, fq1:str, fq2:str, lane:str}
@@ -43,15 +43,21 @@ class PPAlgin(PP):
         return per_sample
 
     def _get_star_mem_cmd(self, _sample):
+
+        STAR_suffix = f"--genomeLoad NoSharedMemory --readFilesCommand zcat  --quantMode TranscriptomeSAM " \
+                      f"--outSAMtype BAM SortedByCoordinate --outSAMattributes NH HI AS NM MD " \
+                      f"--outSAMunmapped Within --outSAMheaderHD @HD VN:1.4 SO:unsorted --outFilterType BySJout " \
+                      f"--outFilterMultimapNmax 20 --outFilterMismatchNmax 999 " \
+                      f"--outFilterMismatchNoverLmax 0.04 --alignIntronMin 20 --alignIntronMax 1000000 " \
+                      f"--alignMatesGapMax 1000000 --alignSJoverhangMin 8 --alignSJDBoverhangMin 1 --sjdbScore 1"
+
         ref_dir = os.path.join(self.ainone['outdir'], '../00_index')
         star_bin = self.ainone['config']['align']['bin']
         threads = self.ainone['config']['align']['threads']
         _log1 = os.path.join(self.ainone['logdir'], _sample['sample'] + '.star.log')
         _result_prefix = os.path.join(self.ainone['outdir'], _sample['sample'])
-        per_sample = (f"{star_bin} --runThreadN {threads} --genomeDir {ref_dir} "
-                      f"--readFilesIn {_sample['fq1']} {_sample['fq2']} "
-                      f"--outFileNamePrefix {_result_prefix} --genomeLoad LoadAndRemove "
-                      f"--outSAMtype BAM SortedByCoordinate --quantMode TranscriptomeSAM > {_log1}")
+        per_sample = (f"{star_bin} --runThreadN {threads} --genomeDir {ref_dir} --readFilesIn {_sample['fq1']} {_sample['fq2']} "
+                      f"--outFileNamePrefix {_result_prefix} {STAR_suffix} > {_log1}")
         return per_sample
 
     def pp_align(self):
@@ -72,3 +78,4 @@ class PPAlgin(PP):
             _cmds.append(_get_func(_sample))
         with open(self.ainone.get('outsh'), 'w') as f_out:
             f_out.write('\n'.join(_cmds))
+            f_out.write('\n')

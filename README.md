@@ -5,6 +5,9 @@
 1. WGS
 2. RNA-seq
 
+## Requirements
+
+
 ## Meta file
 There are two types of meta file for different starting points. **If you have reads from different lanes, please merge them manually before analysis**
 
@@ -20,7 +23,7 @@ There are two types of meta file for different starting points. **If you have re
 
 | sample | bam |
 | :---: | :---: | 
-| G01 | /path/to/bam/G01.bam | 
+| G01 | /path/to/bam/G01.bam |
 
 ### Type3
 If you only run the `genotype`. Just give your `combine.g.vcf.gz` path in command line. 
