@@ -8,35 +8,29 @@
 
 
 import os
+from Utilities.utilities import PP
 
 
-def _parse_args(kwargs):
-    """
-    metalist: each bam per line
-    """
-    ainone = dict()
-    # load config file
-    with open(kwargs.sysconf) as C:
-        ainone['config'] = yaml.safe_load(C)
-    ainone['outdir'] = kwargs.outdir
-    prepare_out_dir(ainone['outdir'], '03_expression')
-    ainone['loginfo'] = os.path.join(kwargs.outdir, 'loginfo', '03_expression')
-    prepare_out_dir(os.path.join(kwargs.outdir, 'loginfo'), '03_expression')
-    if 'align' in kwargs.unit:
-        ainone['samplelist'] = align2expression(kwargs.metalist, ainone['config'], ainone['outdir'])
-    else:
-        with open(kwargs.metalist, 'r') as f_in:
-            ainone['samplelist'] = f_in.read().split('\n')
-    return ainone
+class PPquantify(PP):
+    def _get_rsem_cmd(self, _sample):
+        _ref_index = self.ainone.get('ref')
+        _rsem = os.path.join(self.ainone['config']['quantify']['bin'], 'rsem-calculate-expression')
+        _out = os.path.join(self.ainone['outdir'], _sample['sample'])
+        _log = os.path.join(self.ainone['logdir'], _sample['sample'] + '.log')
+        per_sample = f'{_rsem}  --paired-end --alignments {_sample["bam"]} {_ref_index} {_out}'
+        return per_sample
 
+    def _get_featurecount_cmd(self, _sample):
+        pass
 
-def _get_rsem_expression_cmd(_sample, config, out_dir, log_dir):
-    """
-     rsem-calculate-expression --paired-end \
-                               --alignments \
-                               -p 8 \
-                               /data/mmliver_paired_end_quals.bam \
-                               /ref/mouse_125 \
-                               mmliver_paired_end_quals
-    """
-    pass
+    def pp_quantify(self):
+        _cmds = []
+        if self.ainone['config']['quantify']['software'] == 'RSEM':
+            _get_func = self._get_rsem_cmd
+        elif self.ainone['config']['quantify']['software'] == 'featureCount':
+            _get_func = self._get_featurecount_cmd
+        for _sample in self.meta:
+            _cmds.append(_get_func(_sample))
+        with open(self.ainone.get('outsh'), 'w') as f_out:
+            f_out.write('\n'.join(_cmds))
+            f_out.write('\n')

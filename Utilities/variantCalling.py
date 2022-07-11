@@ -35,6 +35,7 @@ class PPcall(PP):
             _cmds.append(self._get_gatk_gvcf_cmd(_sample))
         with open(self.ainone.get('outsh'), 'w') as f_out:
             f_out.write('\n'.join(_cmds))
+            f_out.write('\n')
 
 
 class PPmerge(PP):
@@ -46,9 +47,13 @@ class PPmerge(PP):
 
         _cmds = f'{gatk_bin} {java_options} CombineGVCFs --reference {ref_index} --output {_out_put} \\\n'
         _cmds += ''.join('-V %s \\\n' % _sample['gvcf'] for _sample in self.meta)
-        _cmds = _cmds.strip(' \\\n')
+        _cmds = _cmds.strip(' \\\n') + '\n'
+        # index
+        _cmds2 = f'{gatk_bin} {java_options} IndexFeatureFile -I {_out_put}'
         with open(self.ainone.get('outsh'), 'w') as f_out:
             f_out.write(_cmds)
+            f_out.write(_cmds2)
+            f_out.write('\n')
 
     def pp_concat(self):
         # for samtools pipeline
@@ -69,7 +74,7 @@ class PPgenotype(PP):
         java_options = "--java-options \"%s\"" % " ".join(self.ainone['config']['variant']['gatk_java']['GenotypeGVCFs'])
 
         per_chr = (f"{gatk_bin} {java_options} GenotypeGVCFs"
-                   f" -R {ref_index} -V {self.meta} -O {_result_vcf} > {_log}")
+                   f" -R {ref_index} -L {_interval} -V {self.meta} -O {_result_vcf} > {_log}")
         return per_chr
 
     def _get_merge(self):
@@ -79,6 +84,7 @@ class PPgenotype(PP):
         for _interval in self.ainone['config']['intervals']:
             vcf_file = os.path.join(self.ainone['outdir'], _interval + '.vcf.gz')
             _cmd += f'-I {vcf_file} \\\n'
+            _cmd.strip(' \\\n')
         return _cmd
 
     def pp_geno(self):
@@ -92,3 +98,4 @@ class PPgenotype(PP):
         _cmd = self._get_merge()
         with open(self.ainone.get('outsh2'), 'w') as f_out:
             f_out.write(_cmd)
+            f_out.write('\n')

@@ -22,7 +22,7 @@ class PPIndex:
     def copy_file(self):
         try:
             os.symlink(self.ainone['config']['resources']['reference'], self.ref)
-            if self.ainone['config']['resources'].get('gff'): # gff was not needed for WGS
+            if self.ainone['config']['resources'].get('gff'):  # gff was not needed for WGS
                 os.symlink(self.ainone['config']['resources']['gff'], self.gff)
         except FileExistsError:
             pass
@@ -33,7 +33,7 @@ class PPIndex:
 
     def _pp_star_index(self):
         _index_cmd = (f"{self.ainone['config']['align']['bin']} "
-                      f"--runThreadN {self.ainone['config']['aligner']['threads']} "
+                      f"--runThreadN {self.ainone['config']['align']['threads']} "
                       f"--runMode genomeGenerate --sjdbGTFtagExonParentTranscript Parent "
                       f"--genomeDir {self.ainone['outdir']} "
                       f"--genomeFastaFiles {self.ref} "
@@ -47,7 +47,7 @@ class PPIndex:
 
     def _pp_rsem_index(self):
         _bin = os.path.join(self.ainone['config']['quantify']['bin'], "rsem-prepare-reference")
-        _index_cmd = f"{_bin} --gff3 {self.gff} {self.ref} {self.prefix}"
+        _index_cmd = f"{_bin} --gff3 {self.gff} {self.ref} {self.ref}"
         self._write_cmds(_index_cmd)
 
     def _pp_bwa_index(self):
@@ -55,10 +55,16 @@ class PPIndex:
         _index_cmd = f"{_bin} index {self.ref}"
         self._write_cmds(_index_cmd)
 
+    def _pp_gatk_index(self):
+        _bin = self.ainone['config']['variant']['bin']
+        _index_cmd = f"{_bin} -Xmx10G CreateSequenceDictionary -R {self.ref}"
+        _index_cmd += f"\nsamtools faidx {self.ref}"
+        self._write_cmds(_index_cmd)
+
     def pp_index(self):
         if self.ainone.get('task') == 'RNA':
             if 'align' in self.ainone.get('units'):
-                _software = self.ainone['config']['aligner']['software']
+                _software = self.ainone['config']['align']['software']
                 if _software == 'hisat2':
                     self._pp_hisat_index()
                 if _software == 'STAR':
@@ -71,3 +77,4 @@ class PPIndex:
                     pass  # featureCounts does not need index file
         else:
             self._pp_bwa_index()
+            self._pp_gatk_index()
