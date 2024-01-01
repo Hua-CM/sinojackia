@@ -5,36 +5,32 @@
 # @Usage   :
 # @Note    : 
 # @E-mail  : njbxhzy@hotmail.com
-import os
-from Utilities.utilities import PP
+from Utilities.Pipe import PP
 
 
 class PPQC(PP):
-    def _get_fastp_cmd(self, _sample):
+    def _get_fastp_cmd(self):
         """Perform QC of fastq input files, generating fastq
         :param _sample{sample:str, RG:str, fq1:str, fq2:str}
         """
-        fastp_bin = self.ainone['config']['QC']['bin']
-        threads = self.ainone['config']['QC']['threads']
-        _log1 = os.path.join(self.ainone['logdir'], _sample['sample']+'_report.html')
-        _log2 = os.path.join(self.ainone['logdir'], _sample['sample']+'_fastp_report.txt')
-        per_sample = (f"{fastp_bin} -q 20 -l 50 -g -x -w {threads} "
-                      f"-i {_sample['fq1']} -o {self.ainone['outdir']}/{_sample['sample']}_1_clean.fq.gz "
-                      f"-I {_sample['fq2']} -O {self.ainone['outdir']}/{_sample['sample']}_2_clean.fq.gz "
-                      f"-h {_log1} > {_log2} ")
-        return per_sample
+        _bin = self.pipe_config.softwareBin['fastp']
+        params = ""
+        if params_dct := self.pipe_config.softwarePara['fastp']:
+            _thread = params_dct.get('threads', 1)
+            params = f"-w {_thread} "
+            if other_params := params_dct.get('OtherParams'):
+                params += ' '.join(other_params)
+        cmds = []
+        for _sample_name in self.outIO.outdct:
+            _infq1 = self.inIO.outdct.get(_sample_name).fq1
+            _infq2 = self.inIO.outdct.get(_sample_name).fq2
+            _outfq1 = self.outIO.outdct.get(_sample_name).cleanfq1
+            _outfq2 = self.outIO.outdct.get(_sample_name).cleanfq2
+            _log1 = self.outIO.logdir / f"{_sample_name}_report.html"
+            _log2 = self.outIO.logdir / f"{_sample_name}_fastp_report.txt"
+            per_sample = (f"{_bin} {params} -i {_infq1} -o {_outfq1} -I {_infq2} -O {_outfq2} -h {_log1} > {_log2}")
+            cmds.append(per_sample)
+        self.outIO.outsh.write_text('\n'.join(cmds) + '\n')
 
-    def pp_qc(self):
-        """
-        :param ainone: a dict prepared by kwargs
-        :param outsh: the path for prepared shell script
-        :return:
-        """
-        _cmds = []
-        for _sample in self.meta:
-            if self.ainone['config']['QC']['software'] == 'fastp':
-                _func1 = self._get_fastp_cmd
-            _cmds.append(_func1(_sample))
-        with open(self.ainone['outsh'], 'w') as f_out:
-            f_out.write('\n'.join(_cmds))
-            f_out.write('\n')
+    def pp_out(self):
+        self._get_fastp_cmd()

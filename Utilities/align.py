@@ -5,77 +5,115 @@
 # @Usage   : NGS alignments with BWA
 # @Note    : 
 # @E-mail  : njbxhzy@hotmail.com
-
-import os
-from Utilities.utilities import PP
+from Utilities.Pipe import PP
 
 
 class PPAlign(PP):
-    def _get_hisat2_cmd(self, _sample):
+    def __wgs_internal(self, software, cmd_pattern):
+        """To streamline the code, make an internal function
+        """
+        _ref = self.pipe_config.ref[software]
+        _bin = self.pipe_config.softwareBin[software]
+        _samblaster = self.pipe_config.softwareBin['samblaster']
+        _sambamba = self.pipe_config.softwareBin['sambamba']
+        _params = ''
+        if _threads := self.pipe_config.softwarePara[software].get('threads'):
+            _params += f'-t {_threads}'
+        if _param := self.pipe_config.softwarePara[software].get('OtherParams'):
+            _params += ' '.join(_param)
+        _tmpdir = self.pipe_config.tmp
+        cmds = []
+        for _sample_name in self.outIO.outdct:
+            _infq1 = self.inIO.outdct.get(_sample_name).cleanfq1
+            _infq2 = self.inIO.outdct.get(_sample_name).cleanfq2
+            _rg = self.inIO.outdct.get(_sample_name).RG
+            _out = self.outIO.outdct.get(_sample_name).bam
+            _log1 = self.outIO.logdir / f"{_sample_name}.bwa.log"
+            _log2 = self.outIO.logdir / f"{_sample_name}.rmdup.log"
+            sample_cmd = cmd_pattern.format(bin=_bin, ref=_ref, params=_params, rg=_rg,
+                                            infq1=_infq1, infq2=_infq2, log1=_log1)
+            per_sample = (f"{sample_cmd} | "
+                          f"{_samblaster} --acceptDupMarks --addMateTags 2> {_log2} | "
+                          f"{_sambamba} view -S -f bam -l 0 /dev/stdin | "
+                          f"{_sambamba} sort -t {_threads} --tmpdir {_tmpdir} -o {_out} /dev/stdin")
+            cmds.append(per_sample)
+        self.outIO.outsh.write_text('\n'.join(cmds) + '\n')
+
+    def _pp_bwa(self):
+        self.__wgs_internal('bwa', "{bin} mem -v 2 {params} -R {rg} {ref} {infq1} {infq2} 2> {log1}")
+    
+    def _pp_bowtie(self):
+        self.__wgs_internal('bowtie', "{bin} -S {params} --sam-RG {rg} -x {ref} -1 {infq1} -2 {infq2} 2> {log1}")
+    
+    def _pp_bowtie2(self):
+        self.__wgs_internal('bowtie2', "{bin} {params} --rg {rg} -x {ref} -1 {infq1} -2 {infq2} 2> {log1}")
+
+    def _pp_hisat2(self):
         """
         :param _sample: {sample:str, RG:str, fq1:str, fq2:str, lane:str}
         :return:
         """
-        _bin = os.path.join(self.ainone['config']['align']['bin'], "hisat2-align")
-        threads = self.ainone['config']['align']['threads']
-        _res_bam = os.path.join(self.ainone['outdir'], f"{_sample['sample']}Aligned.toTranscriptome.out.bam")
-        per_sample = (f"{_bin} -p {threads} --dta --rg-id {_sample['RG']} -1 {_sample['fq1']} -2 {_sample['fq2']} | "
-                      f"samtools sort -@ {threads} > {_res_bam}")
-        return per_sample
+        _ref = self.pipe_config.ref['hisat2']
+        _bin = self.pipe_config.softwareBin['hisat2']
+        params = ''
+        if _threads := self.pipe_config.softwarePara['hisat2'].get('threads'):
+            params += f'-t {_threads}'
+        if _param := self.pipe_config.softwarePara['hisat2'].get('OtherParams'):
+            params += ' '.join(_param)
+        cmds = []
+        for _sample_name in self.outIO.outdct:
+            _infq1 = self.inIO.outdct.get(_sample_name).cleanfq1
+            _infq2 = self.inIO.outdct.get(_sample_name).cleanfq2
+            _rg = self.inIO.outdct.get(_sample_name).RG
+            _out = self.outIO.outdct.get(_sample_name).bam
+            _out = self.outIO.outdct.get(_sample_name).bam
+            _log = self.outIO.logdir / (_sample_name + '.summary.txt')
+            per_sample = (f"{_bin} -p {_threads} --summary-file {_log} "
+                          f"--dta --rg-id {_rg} -x {_ref} -1 {_infq1} -2 {_infq2} | "
+                          f"samtools sort -@ {_threads} > {_out}")
+            cmds.append(per_sample)
+        self.outIO.outsh.write_text('\n'.join(cmds) + '\n')
 
-    def _get_bwa_mem_cmd(self, _sample):
-        """Perform piped alignment of fastq input files, generating sorted output BAM
-        :param _sample{sample:str, RG:str, fq1:str, fq2:str}
+    def _pp_star(self):
+        """_summary_
+        STAR not support other params for now.
         """
-        ref_index = self.ainone.get('ref')
-        bwa_bin = self.ainone['config']['align']['bwa']
-        _samblaster = self.ainone['config']['align']['samblaster']
-        _sambamba = self.ainone['config']['align']['sambamba']
-        threads = self.ainone['config']['align']['threads']
-        tmpdir = self.ainone['config']['resources']['temporary']
-        _res_bam = os.path.join(self.ainone['outdir'], _sample['sample'] + '.sorted.bam')
-        _log1 = os.path.join(self.ainone['logdir'], _sample['sample'] + '.bwa.log')
-        _log2 = os.path.join(self.ainone['logdir'], _sample['sample'] + '.marked.log')
-        per_sample = (f"{bwa_bin} mem -v 2 -t {threads} -R {_sample['RG']} {ref_index} {_sample['fq1']} {_sample['fq2']} 2> {_log1} |"
-                      f"{_samblaster} --acceptDupMarks --addMateTags 2> {_log2} |"
-                      f"{_sambamba} view -S -f bam -l 0 /dev/stdin |"
-                      f"{_sambamba} sort -t {threads} --tmpdir {tmpdir} -o {_res_bam} /dev/stdin")
-        return per_sample
 
-    def _get_star_mem_cmd(self, _sample):
+        params = f"--genomeLoad NoSharedMemory --readFilesCommand zcat  --quantMode TranscriptomeSAM " \
+                 f"--outSAMtype BAM SortedByCoordinate --outSAMattributes NH HI AS NM MD " \
+                 f"--outSAMunmapped Within --outSAMheaderHD @HD VN:1.4 SO:unsorted --outFilterType BySJout " \
+                 f"--outFilterMultimapNmax 20 --outFilterMismatchNmax 999 " \
+                 f"--outFilterMismatchNoverLmax 0.04 --alignIntronMin 20 --alignIntronMax 1000000 " \
+                 f"--alignMatesGapMax 1000000 --alignSJoverhangMin 8 --alignSJDBoverhangMin 1 --sjdbScore 1"
+        _ref = self.pipe_config.ref['STAR']
+        _bin = self.pipe_config.softwareBin['STAR']
+        if params_dct := self.pipe_config.softwarePara.get('STAR'):
+            _thread = params_dct.get('threads', 1)
+            params += f" --runThreadN {_thread}"
+        cmds = []
+        for _sample_name in self.outIO.outdct:
+            _log = self.outIO.logdir / f"{_sample_name}.log"
+            _infq1 = self.inIO.outdct.get(_sample_name).cleanfq1
+            _infq2 = self.inIO.outdct.get(_sample_name).cleanfq2
+            _out = self.outIO.outdct.get(_sample_name).bam # Take it easy, just use 'bam' attr here, it is a prefix
+            per_sample = (f"{_bin} --genomeDir {_ref} --readFilesIn {_infq1} {_infq2} "
+                          f"--outFileNamePrefix {_out} {params} > {_log}")
+            cmds.append(per_sample)
+        self.outIO.outsh.write_text('\n'.join(cmds) + '\n')
 
-        STAR_suffix = f"--genomeLoad NoSharedMemory --readFilesCommand zcat  --quantMode TranscriptomeSAM " \
-                      f"--outSAMtype BAM SortedByCoordinate --outSAMattributes NH HI AS NM MD " \
-                      f"--outSAMunmapped Within --outSAMheaderHD @HD VN:1.4 SO:unsorted --outFilterType BySJout " \
-                      f"--outFilterMultimapNmax 20 --outFilterMismatchNmax 999 " \
-                      f"--outFilterMismatchNoverLmax 0.04 --alignIntronMin 20 --alignIntronMax 1000000 " \
-                      f"--alignMatesGapMax 1000000 --alignSJoverhangMin 8 --alignSJDBoverhangMin 1 --sjdbScore 1"
 
-        ref_dir = os.path.join(self.ainone['outdir'], '../00_index')
-        star_bin = self.ainone['config']['align']['bin']
-        threads = self.ainone['config']['align']['threads']
-        _log1 = os.path.join(self.ainone['logdir'], _sample['sample'] + '.star.log')
-        _result_prefix = os.path.join(self.ainone['outdir'], _sample['sample'])
-        per_sample = (f"{star_bin} --runThreadN {threads} --genomeDir {ref_dir} --readFilesIn {_sample['fq1']} {_sample['fq2']} "
-                      f"--outFileNamePrefix {_result_prefix} {STAR_suffix} > {_log1}")
-        return per_sample
-
-    def pp_align(self):
-        """
-        :param ainone: a dict prepared by kwargs
-        :param outsh: the path for prepared shell script
-        :return:
-        """
-        _cmds = []
-        if self.ainone.get('task') == 'WGS':
-            _get_func = self._get_bwa_mem_cmd
-        elif self.ainone.get('task') == 'RNA':
-            if self.ainone['config']['align']['software'] == 'STAR':
-                _get_func = self._get_star_mem_cmd
-            elif self.ainone['config']['align']['software'] == 'hisat2':
-                _get_func = self._get_hisat2_cmd
-        for _sample in self.meta:
-            _cmds.append(_get_func(_sample))
-        with open(self.ainone.get('outsh'), 'w') as f_out:
-            f_out.write('\n'.join(_cmds))
-            f_out.write('\n')
+    def pp_out(self):
+        for _software in self.pipe_config.software.values():
+            match _software:
+                case 'hisat2':
+                    self._pp_hisat2()
+                case 'STAR':
+                    self._pp_star()
+                case 'bwa':
+                    self._pp_bwa()
+                case 'bowtie':
+                    self._pp_bowtie()
+                case 'bowtie2':
+                    self._pp_bowtie2()
+                case _:
+                    continue

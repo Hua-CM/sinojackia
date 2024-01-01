@@ -1,23 +1,37 @@
 QC:
-    software: fastp/FastQC
-    bin: /path/to/fastp or FastQC #(FastQC not use now)
-    threads: 8
+    software: fastp/FastQC #(FastQC not use now)
+    bin:
+        fastp: /path/to/fastp # or FastQC 
+    params:
+        threads: 8
+        fastp: [-q, 20, -l, 50, -g, -x]
 
 align:
-    bwa: /path/to/bwa
-    samblaster: /path/to/samblaster
-    sambamba: /path/to/sambamba
-    threads: 8
+    software: bwa/bowtie #(bowtie not support now)
+    bin:
+        bowtie: /path/to/bin
+        bowtie-build: /path/to/bin
+        samblaster: /path/to/samblaster
+        sambamba: /path/to/sambamba
+    params:
+        threads: 8
 
-variant:
-    software: GATK/samtools #(samtools not use now)
-    bin: /path/to/GATK or samtools
-    gatk_java:
+call:
+    software: GATK/bcfools
+    bin:
+        GATK: /path/to/bin
+        bcftools: /path/to/bin
+        samtools: /path/to/bin # You also need to provide samtools' bin
+    params: # Only accept parameters listed below for now
+        threads: 8 # Not work for GATK
         HaplotypeCaller: [-Xmx10G]
         CombineGVCFs: [-Xmx80G]
         GenotypeGVCFs: [-Xmx10G]
-intervals: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18",
-            "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32", "33", "W","Z"]
+    intervals: ["1", "2", "3", "4", "5", "6", "7", "8", "9",
+                "10", "11", "12", "13", "14", "15", "16",
+                "17", "18", "19", "20", "21", "22", "23",
+                "24", "25", "26", "27", "28", "29", "30",
+                "31", "32", "33", "W","Z"]
 
 resources:
     reference: /path/to/genome/fasta

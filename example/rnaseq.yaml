@@ -1,17 +1,27 @@
 QC:
-    fastp: /home/smalltools/fastp
+    software: fastp
+    bin:
+        fastp: /path/to/fastp
+    params:
+        threads: 4
+        fastp: [-q, 20, -l, 50, -g, -x]
 
 align:
     software: hisat2/STAR
-    bin: /path/to/hisat2_directory OR STAR_bin
-    threads: 8
+    bin: 
+        hisat: /path/to/hisat2
+        hisat2-build: /path/to/hisat2-build
+    params:
+        threads: 8
+
 
 quantify:
-    software: featureCounts/RSEM
-    bin: /path/to/rsem_directory OR featureCounts_bin
-    index: /path/to/index
+    software: htseq-count/RSEM
+    bin:
+        htseq-count: /path/to/htseq-count
 
 resources:
     reference:
     gff:
+    gtf: # Not necessary. Only need when you choose htseq-count to quantify RNA-seq. It is recommended to use gffread to generate this file from gff.
     temporary:

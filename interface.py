@@ -5,45 +5,49 @@
 # @Usage: interface between every step to main
 # @Note:
 # @E-mail: njbxhzy@hotmail.com
+from pathlib import Path
+import yaml
 
-from Utilities.index import PPIndex
+from Utilities.index import IndexPipe
 from Utilities.qc import PPQC
 from Utilities.align import PPAlign
-from Utilities.variantCalling import PPcall, PPmerge, PPgenotype
+from Utilities.calling import PPcall
 from Utilities.quantify import PPquantify
-from Utilities.utilities import GenConfig, GenMeta
+from Utilities.Pipe import ConfigPipe, MetaPipe, pp_out_dir
 
 
 def interface(args):
-    if args.command == 'WGS':
-        start_dict = {'QC': 0, 'align': 1, 'variant': 2, 'merge': 3, 'genotype': 4}
-        if args.units == ['all']:
-            args.units = ['QC', 'align', 'variant', 'merge', 'genotype']
-    else: # RNA
-        start_dict = {'QC': 0, 'align': 1, 'quantify': 2}
-        if args.units == ['all']:
-            args.units = ['QC', 'align', 'quantify']
-    start_point = 5
-    for unit in args.units:
-        start_point = min(start_point, start_dict[unit])
-    start_point = list(start_dict.keys())[start_point]
-    InsConfig = GenConfig(args.sysconf, args.outdir, args.logdir, args.project, args.units, args.command)
-    InsMeta = GenMeta(args.meta, args.outdir, args.project, args.command, start_point=start_point)
+    """The total interface
+
+    Args:
+        command (str): WGS/RNA
+        units (list): ['QC', 'align', 'variant', 'merge', 'genotype']
+        sysconf
+    """
+    sysconf = yaml.safe_load(Path(args.sysconf).read_bytes())
+    pp_out_dir(args.outdir)
+    pp_out_dir(args.logdir)
+
+    ConfigGlobal = ConfigPipe(sysconf, args.outdir, args.logdir,
+                              args.project, args.units, args.command)
     # index
-    InsIndex = PPIndex(InsConfig.pp_index())
-    InsIndex.copy_file()
+    InsIndex = IndexPipe(ConfigGlobal)
     InsIndex.pp_index()
-    if 'QC' in args.units:
-        PPQC(InsConfig.pp_qc(), InsMeta.pp_qc()).pp_qc()
-    if 'align' in args.units:
-        PPAlign(InsConfig.pp_align(), InsMeta.pp_align()).pp_align()
-    if args.command == 'WGS':
-        if 'variant' in args.units:
-            PPcall(InsConfig.pp_call(), InsMeta.pp_quan_var()).pp_call()
-        if 'merge' in args.units:
-            PPmerge(InsConfig.pp_merge(), InsMeta.pp_merge()).pp_CombineGVCFs()
-        if 'genotype' in args.units:
-            PPgenotype(InsConfig.pp_genotype(), InsMeta.pp_genotype()).pp_geno()
-    elif args.command == 'RNA':
-        if 'quantify' in args.units:
-            PPquantify(InsConfig.pp_quan(), InsMeta.pp_quan_var()).pp_quantify()
+    MetaGlobal = MetaPipe(args.meta, ConfigGlobal)
+    # The first step input is from the file and output the files used as next step input
+    initial_step_io = MetaGlobal.pp_meta(ConfigGlobal.units[0])
+    last_step_io = initial_step_io
+
+    # Other units
+    class_dct = {'QC': PPQC, 'align': PPAlign, 'call': PPcall, 'quantify': PPquantify}
+    unit_order = 1
+    for _unit in ConfigGlobal.units:
+        step_io_lst = MetaGlobal.pp_out(_unit, unit_order)
+        for sub_step_io in step_io_lst:
+            # Some units have sub steps
+            # Each PP* class should handle substeps based on 'step_name' them self
+            cur_step_io = sub_step_io
+            step_ins = class_dct[_unit](ConfigGlobal, last_step_io, cur_step_io)
+            step_ins.pp_out()
+            last_step_io = cur_step_io
+        unit_order += len(step_io_lst)
