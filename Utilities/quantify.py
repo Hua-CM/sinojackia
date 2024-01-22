@@ -68,13 +68,14 @@ class PPquantify(PP):
 
 
     def pp_out(self):
-        if self.inIO.software == 'STAR':
-            bam_dct = {}
-            for _sample_name, _sample_io in self.inIO.outdct.items():
-                bam_dct[_sample_name] = _sample_io.bam.parent / (_sample_io.bam.name + '.toTranscriptome.out.bam')
-        else:
-            bam_dct = self.inIO.outdct
         if self.outIO.step_name == 'quantify':
+            # Fix suffix
+            if self.inIO.software == 'STAR':
+                bam_dct = {}
+                for _sample_name, _sample_io in self.inIO.outdct.items():
+                    bam_dct[_sample_name] = _sample_io.bam.parent / (_sample_io.bam.name + '.toTranscriptome.out.bam')
+            else:
+                bam_dct = {_sample_name: _sample_io.bam for _sample_name, _sample_io in self.inIO.outdct.items()}
             match self.outIO.software:
                 case 'RSEM':
                     self._pp_rsem(bam_dct)

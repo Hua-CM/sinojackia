@@ -30,12 +30,13 @@ def interface(args):
 
     ConfigGlobal = ConfigPipe(sysconf, args.outdir, args.logdir,
                               args.project, args.units, args.command)
-    # index
+    # Index
     InsIndex = IndexPipe(ConfigGlobal)
     InsIndex.pp_index()
     MetaGlobal = MetaPipe(args.meta, ConfigGlobal)
-    # The first step input is from the file and output the files used as next step input
-    initial_step_io = MetaGlobal.pp_meta(ConfigGlobal.units[0])
+    # Prepare the input stepio information for the first step. Other step use the previous
+    # step output as input.
+    initial_step_io = MetaGlobal.pp_in(ConfigGlobal.units[0])
     last_step_io = initial_step_io
 
     # Other units

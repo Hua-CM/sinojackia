@@ -95,7 +95,7 @@ class ConfigPipe:
         self.outdir: Path = outdir
         self.logdir: Path = logdir
         self.tmp: Path = self._pp_tmp(config, outdir)
-        self.ref: Path = self._pp_ref(config, project, outdir, self.units)
+        self.ref: Path = self._pp_ref(config, project, outdir)
     
     @staticmethod
     def sort_unit(task, units):
@@ -185,7 +185,7 @@ class ConfigPipe:
         return _tmp_path
 
     @staticmethod
-    def _pp_ref(_config, _project, _outdir: Path, units):
+    def _pp_ref(_config, _project, _outdir: Path):
         """
         Only ref file path for Index step is generated in ConfigPipe. Because no matter
         which steps you choose, it is necessary to index. Therefore, Index always step0. 
@@ -300,16 +300,6 @@ class MetaPipe:
                 self.sample_dct[_sample_ins.name] = ''
         return sample_dct
     
-
-    def pp_meta(self, step='QC'):
-        step_io = StepIO('meta')
-        if step in ['QC', 'align']:
-            sample_dct = self._pp_meta1()
-        else:
-            sample_dct = self._pp_meta2()
-        step_io.outdct = sample_dct
-        return step_io
-
 
     def pp_qc(self, order=1):
         step_io = StepIO('QC')
@@ -447,11 +437,31 @@ class MetaPipe:
                     step_io_lst.append(step_io)
                     order += 1
         return step_io_lst
-    
+
+
+    def pp_in(self, step='QC'):
+        step_io = StepIO('meta')
+        if step in ['QC', 'align']:
+            sample_dct = self._pp_meta1(step)
+        else:
+        # TODO This may raise ERROR for now, because _pp_meta2 accept file type as
+        # arguments for now, but pp_in was designed to accept step name.
+            sample_dct = self._pp_meta2()
+        step_io.outdct = sample_dct
+        return step_io
+
+
     def pp_out(self, unit, order):
+        """Prepare output files
+
+        Args:
+            unit (_type_): _description_
+            order (_type_): _description_
+
+        Raises:
+            ValueError: The unit is not in present unit list
+        """
         match unit:
-            case 'meta':
-                return self.pp_meta(order)
             case 'QC':
                 return self.pp_qc(order)
             case 'align':
